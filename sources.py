@@ -196,14 +196,17 @@ def render_sources_tab(notes: List[Dict], notes_folder: str = "./notes"):
     # Organize sources by type
     sources_by_type = organize_sources_by_type(notes)
     
-    # Create main layout columns
-    left_col, right_col = st.columns([1, 2])
+    # Create three-column layout: Sources | Content Viewer | Linked Viewer
+    left_col, middle_col, right_col = st.columns([1, 1.5, 1.5])
     
     with left_col:
         render_sources_sidebar(sources_by_type, notes, notes_folder)
     
-    with right_col:
+    with middle_col:
         render_content_viewer(notes, notes_folder)
+    
+    with right_col:
+        render_linked_viewer(notes, notes_folder)
 
 def render_sources_sidebar(sources_by_type: Dict[str, List[Dict]], notes: List[Dict], notes_folder: str = "./notes"):
     """
@@ -384,10 +387,9 @@ def render_content_viewer(notes: List[Dict], notes_folder: str):
         content = read_full_file_content(selected_file, notes_folder)
         if content and not content.startswith("Error") and not content.startswith("File not found"):
             st.markdown("#### 📖 Full File Content")
-            if selected_file.endswith('.md'):
-                st.markdown(content)
-            else:
-                st.text(content)
+            
+            # Render content with clickable wikilink buttons
+            render_content_with_wikilink_buttons(content, notes, selected_file)
         else:
             st.error(f"Could not read file content: {content}")
 
@@ -486,3 +488,396 @@ def show_file_analytics(notes: List[Dict], file_path: str):
         with col2:
             st.metric("Median Chunk Size", sorted(chunk_sizes)[len(chunk_sizes)//2])
             st.metric("Std Deviation", f"{(sum((x - sum(chunk_sizes)/len(chunk_sizes))**2 for x in chunk_sizes) / len(chunk_sizes))**0.5:.1f}") 
+
+# =============================================================================
+# WIKILINK PROCESSING AND LINKED VIEWER
+# =============================================================================
+
+def extract_wikilinks(content: str) -> List[str]:
+    """
+    Extract wikilinks from content in [[...]] format.
+    
+    Args:
+        content (str): Text content to parse
+        
+    Returns:
+        List[str]: List of wikilink references (without brackets)
+    """
+    pattern = r'\[\[([^\]]+)\]\]'
+    matches = re.findall(pattern, content)
+    return matches
+
+def resolve_wikilink(wikilink: str, notes: List[Dict]) -> Optional[str]:
+    """
+    Resolve a wikilink to an actual file path.
+    
+    Args:
+        wikilink (str): Wikilink text to resolve
+        notes (List[Dict]): All available notes
+        
+    Returns:
+        Optional[str]: File path if found, None otherwise
+    """
+    wikilink_lower = wikilink.lower()
+    
+    # Try exact matches first
+    for note in notes:
+        file_path = note.get('file', '')
+        file_stem = Path(file_path).stem.lower()
+        
+        # Direct stem match
+        if file_stem == wikilink_lower:
+            return file_path
+            
+        # Title match from metadata
+        if note.get('metadata', {}).get('title', '').lower() == wikilink_lower:
+            return file_path
+    
+    # Try partial matches
+    for note in notes:
+        file_path = note.get('file', '')
+        file_stem = Path(file_path).stem.lower()
+        
+        # Partial stem match
+        if wikilink_lower in file_stem or file_stem in wikilink_lower:
+            return file_path
+    
+    return None
+
+def render_linked_viewer(notes: List[Dict], notes_folder: str):
+    """
+    Render the linked content viewer that shows content only when a wikilink is clicked.
+    
+    Args:
+        notes (List[Dict]): List of note chunks
+        notes_folder (str): Path to the notes folder
+    """
+    st.subheader("🔗 Linked Viewer")
+    
+    # Check if a wikilink has been clicked
+    if 'selected_wikilink' not in st.session_state:
+        st.info("👈 Click on a wikilink in the Content Viewer to see linked content here")
+        return
+    
+    # Get the selected wikilink info
+    selected_wikilink = st.session_state.selected_wikilink
+    
+    # Show clear button to close linked viewer
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown(f"**Showing:** `{selected_wikilink}`")
+    with col2:
+        if st.button("✖️", key="close_linked_viewer", help="Close linked viewer"):
+            del st.session_state.selected_wikilink
+            st.rerun()
+    
+    # Resolve wikilink to file path
+    resolved_path = resolve_wikilink(selected_wikilink, notes)
+    
+    if not resolved_path:
+        st.error(f"❌ Could not find file for: `{selected_wikilink}`")
+        
+        # Show suggestions for similar files
+        st.markdown("**Suggestions:**")
+        similar_files = []
+        for note in notes[:5]:
+            file_name = Path(note.get('file', '')).stem.lower()
+            if selected_wikilink.lower() in file_name:
+                similar_files.append(note.get('file', ''))
+        
+        if similar_files:
+            for similar_file in similar_files:
+                if st.button(f"📄 {similar_file}", key=f"similar_{similar_file}"):
+                    st.session_state.selected_source = similar_file
+                    del st.session_state.selected_wikilink  # Clear wikilink selection
+                    st.rerun()
+        else:
+            st.info("No similar files found")
+        return
+    
+    # Display the linked file content
+    render_linked_file_content(resolved_path, notes_folder, selected_wikilink)
+
+def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name: str):
+    """
+    Render the content of a linked file.
+    
+    Args:
+        file_path (str): Path to the linked file
+        notes_folder (str): Base notes folder
+        wikilink_name (str): Original wikilink name for display
+    """
+    st.markdown(f"**File:** `{file_path}`")
+    
+    # Content display mode
+    display_mode = st.selectbox(
+        "Display Mode:",
+        ["Preview", "Full Content"],
+        key="linked_viewer_mode",
+        help="Choose how to display the linked content"
+    )
+    
+    # Read file content
+    content = read_full_file_content(file_path, notes_folder)
+    
+    if not content or content.startswith("Error") or content.startswith("File not found"):
+        st.error(f"Could not read linked file: {content}")
+        return
+    
+    if display_mode == "Preview":
+        # Show first 500 characters as preview
+        preview = content[:500]
+        if len(content) > 500:
+            preview += "..."
+        
+        st.markdown("**Preview:**")
+        if file_path.endswith('.md'):
+            st.markdown(preview)
+        else:
+            st.text(preview)
+            
+        if len(content) > 500:
+            st.caption(f"Showing first 500 of {len(content)} characters")
+    
+    else:  # Full Content
+        st.markdown("**Full Content:**")
+        if file_path.endswith('.md'):
+            st.markdown(content)
+        else:
+            st.text(content)
+    
+    # Check for nested wikilinks
+    nested_links = extract_wikilinks(content)
+    if nested_links:
+        st.markdown("---")
+        st.markdown(f"**🔗 Links in this file ({len(nested_links)}):**")
+        
+        # Show up to 5 nested links
+        for i, nested_link in enumerate(nested_links[:5]):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"• `{nested_link}`")
+            with col2:
+                if st.button("→", key=f"nested_link_{i}_{nested_link}", help=f"Follow {nested_link}"):
+                    # Resolve and display nested link
+                    nested_path = resolve_wikilink(nested_link, notes)
+                    if nested_path:
+                        st.session_state.selected_source = nested_path
+                        st.rerun()
+        
+        if len(nested_links) > 5:
+            st.caption(f"+ {len(nested_links) - 5} more links...")
+
+def render_content_with_wikilink_buttons(content: str, notes: List[Dict], source_file: str):
+    """
+    Render content with inline clickable wikilinks and improved daily note formatting.
+    
+    Args:
+        content (str): Original content with wikilinks
+        notes (List[Dict]): All notes for resolution
+        source_file (str): Source file path for unique keys
+    """
+    import re
+    
+    # Check if this is a daily note for special formatting
+    is_daily = is_daily_note(source_file)
+    
+    if is_daily:
+        render_daily_note_content(content, notes, source_file)
+    else:
+        render_regular_content_with_inline_wikilinks(content, notes, source_file)
+
+def render_daily_note_content(content: str, notes: List[Dict], source_file: str):
+    """
+    Render daily note content with special formatting for entries.
+    """
+    import re
+    
+    lines = content.split('\n')
+    current_entry = {}
+    entry_count = 0
+    
+    for line in lines:
+        line = line.strip()
+        
+        # Skip empty lines and headers
+        if not line or line.startswith('#'):
+            if line.startswith('#'):
+                st.markdown(line)
+            continue
+        
+        # Check for time-based entry (e.g., "18:11 captura dia 5")
+        time_match = re.match(r'^(\d{1,2}:\d{2})\s+(.*)$', line)
+        if time_match:
+            # Render previous entry if exists
+            if current_entry:
+                render_daily_entry_card(current_entry, notes, source_file, entry_count)
+                entry_count += 1
+            
+            # Start new entry
+            current_entry = {
+                'time': time_match.group(1),
+                'description': time_match.group(2),
+                'status': '',
+                'area': '',
+                'date': '',
+                'wikilinks': [],
+                'raw_lines': [line]
+            }
+            continue
+        
+        # Process metadata and wikilinks for current entry
+        if current_entry:
+            current_entry['raw_lines'].append(line)
+            
+            if line.startswith('status::'):
+                current_entry['status'] = line.replace('status::', '').strip()
+            elif line.startswith('area::'):
+                current_entry['area'] = line.replace('area::', '').strip()
+            elif line.startswith('date::'):
+                current_entry['date'] = line.replace('date::', '').strip()
+            elif '[[' in line and ']]' in line:
+                wikilinks = extract_wikilinks(line)
+                current_entry['wikilinks'].extend(wikilinks)
+    
+    # Render last entry
+    if current_entry:
+        render_daily_entry_card(current_entry, notes, source_file, entry_count)
+
+def render_daily_entry_card(entry: Dict, notes: List[Dict], source_file: str, entry_count: int):
+    """
+    Render a daily entry as a card with proper formatting.
+    """
+    with st.container():
+        # Create a card-like container
+        st.markdown("""
+        <div style="
+            border: 1px solid #e0e0e0; 
+            border-radius: 8px; 
+            padding: 16px; 
+            margin: 8px 0; 
+            background-color: #fafafa;
+        ">
+        """, unsafe_allow_html=True)
+        
+        # Header with time and description
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            st.markdown(f"### ⏰ {entry['time']} - {entry['description']}")
+        
+        with col2:
+            status = entry.get('status', '')
+            if status:
+                if status == 'Not Processed':
+                    st.markdown("🔴 **Not Processed**")
+                elif status == 'Processed':
+                    st.markdown("🟢 **Processed**")
+                elif status == 'In Progress':
+                    st.markdown("🟡 **In Progress**")
+                else:
+                    st.markdown(f"⚪ **{status}**")
+        
+        with col3:
+            area = entry.get('area', '')
+            if area:
+                st.markdown(f"📂 **{area}**")
+        
+        # Date if available
+        date = entry.get('date', '')
+        if date:
+            st.caption(f"📅 {date}")
+        
+        # Render wikilinks inline
+        if entry.get('wikilinks'):
+            st.markdown("**🔗 Related:**")
+            for i, wikilink in enumerate(entry['wikilinks']):
+                resolved_path = resolve_wikilink(wikilink, notes)
+                button_key = f"daily_wikilink_{source_file}_{entry_count}_{i}_{wikilink}".replace("/", "_").replace(".", "_").replace(" ", "_")
+                
+                if resolved_path:
+                    if st.button(
+                        wikilink,
+                        key=button_key,
+                        help=f"Click to view {wikilink} in Linked Viewer"
+                    ):
+                        st.session_state.selected_wikilink = wikilink
+                        st.rerun()
+                else:
+                    st.markdown(f"❌ {wikilink} (not found)")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+
+def render_regular_content_with_inline_wikilinks(content: str, notes: List[Dict], source_file: str):
+    """
+    Render regular content with styled wikilinks and clickable buttons.
+    """
+    import re
+    
+    # Find all wikilinks in content
+    wikilinks = extract_wikilinks(content)
+    
+    # Split content by lines to process wikilinks
+    lines = content.split('\n')
+    processed_lines = []
+    
+    for line_num, line in enumerate(lines):
+        if '[[' in line and ']]' in line:
+            # Process line with wikilinks
+            processed_line = process_line_with_inline_wikilinks(line, notes, source_file, line_num)
+            processed_lines.append(processed_line)
+        else:
+            processed_lines.append(line)
+    
+    # Join and display the content
+    processed_content = '\n'.join(processed_lines)
+    
+    if source_file.endswith('.md'):
+        st.markdown(processed_content, unsafe_allow_html=True)
+    else:
+        st.text(processed_content)
+    
+    # Add clickable wikilink buttons below content (only if wikilinks exist)
+    if wikilinks:
+        st.markdown("---")
+        st.markdown("**🔗 Links in this content:**")
+        cols = st.columns(min(len(wikilinks), 3))  # Max 3 columns
+        
+        for i, wikilink in enumerate(wikilinks):
+            col_index = i % 3
+            with cols[col_index]:
+                resolved_path = resolve_wikilink(wikilink, notes)
+                button_key = f"regular_wikilink_{source_file}_{i}_{wikilink}".replace("/", "_").replace(".", "_").replace(" ", "_")
+                
+                if resolved_path:
+                    if st.button(
+                        f"🔗 {wikilink}",
+                        key=button_key,
+                        help=f"Click to view {wikilink} in Linked Viewer",
+                        use_container_width=True
+                    ):
+                        st.session_state.selected_wikilink = wikilink
+                        st.rerun()
+
+def process_line_with_inline_wikilinks(line: str, notes: List[Dict], source_file: str, line_num: int) -> str:
+    """
+    Process a line to style wikilinks (actual clicking handled separately).
+    """
+    import re
+    
+    def replace_wikilink(match):
+        wikilink_text = match.group(1)
+        resolved_path = resolve_wikilink(wikilink_text, notes)
+        
+        if resolved_path:
+            # Style valid wikilinks
+            return f'<span style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #1976d2; border-radius: 6px; padding: 4px 8px; color: #1976d2; font-weight: 500; margin: 0 2px; display: inline-block;">🔗 {wikilink_text}</span>'
+        else:
+            # Style broken wikilinks
+            return f'<span style="background-color: #ffebee; padding: 4px 8px; border-radius: 6px; border: 1px solid #d32f2f; color: #d32f2f; margin: 0 2px; display: inline-block;">❌ {wikilink_text}</span>'
+    
+    # Replace wikilinks with styled elements
+    pattern = r'\[\[([^\]]+)\]\]'
+    processed_line = re.sub(pattern, replace_wikilink, line)
+    
+    return processed_line 
