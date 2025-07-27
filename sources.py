@@ -682,7 +682,44 @@ def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name:
 Notas personales del análisis de métricas: Después de revisar los últimos resultados del modelo de Whisper AI, puedo confirmar que hemos logrado un Word Error Rate de 2.8% en condiciones de laboratorio, lo cual representa una mejora significativa desde el 4.1% anterior. Las métricas de precisión muestran que estamos alcanzando 94.2% de accuracy en acentos mexicanos y 89% en el modelo de detección de emociones. La latencia promedio es de 180ms lo cual está por debajo de nuestro objetivo de 200ms. Estos números indican que el proyecto está listo para la siguiente fase de testing con usuarios reales.
 """
                 else:  # Photo/image content
-                    fake_ai_description = f"""
+                    # Check if this is the specific testing photo file
+                    if "testing_29_07_foto" in wikilink_name.lower():
+                        fake_ai_description = f"""
+
+---
+
+## 🤖 Descripción generada por IA - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+---
+title: "Resultados de Testing con Usuarios Reales"
+date: 2025-07-29
+type: "photo-documentation"
+context: "user-testing-session-results"
+---
+
+# 📷 Resultados de Sesiones de Testing con Usuarios Reales
+
+## Documentación Visual de Resultados Obtenidos
+
+Esta fotografía captura **los resultados finales de nuestras sesiones de testing con usuarios reales** del sistema de reconocimiento de voz IA. La imagen muestra la pantalla principal donde se desplegaron todos los datos obtenidos durante las pruebas con participantes reales.
+
+### Resultados Visualizados en Pantalla:
+
+**📊 Métricas de Rendimiento Obtenidas:**
+- **Accuracy Final**: 94.2% en reconocimiento de español mexicano (visible en gráfico principal)
+- **Word Error Rate**: 2.8% mostrado en el dashboard de resultados  
+- **Latencia Promedio**: 165ms documentada en tiempo real
+- **Detección Emocional**: 89% de precisión en identificación de estados
+
+**👥 Resultados por Usuario:**
+La pantalla muestra los resultados individuales de los **3 usuarios reales** que participaron:
+- Usuario 1: 96% accuracy, latencia 150ms
+- Usuario 2: 93% accuracy, latencia 170ms  
+- Usuario 3: 94% accuracy, latencia 175ms
+"""
+                    else:
+                        # Generic photo description for other photo files
+                        fake_ai_description = f"""
 
 ---
 
@@ -720,8 +757,9 @@ Esta imagen muestra una sesión de testing de interfaz de usuario con elementos 
                         st.success("✅ Descripción IA agregada exitosamente")
                         st.info("🔄 Recargando contenido para búsqueda...")
                         
-                        # Force rerun to reload content
-                        st.rerun()
+                        # Clear cached data and force rerun to reload content
+                        st.cache_data.clear()  # Clear cached data to force reload
+                        st.rerun()             # Restart the app
                     else:
                         st.warning("⚠️ Ya existe una descripción IA para este archivo")
                         
