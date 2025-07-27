@@ -103,11 +103,11 @@ def create_summarization_prompt(query: str, relevant_notes: List[Dict]) -> str:
         context += f"\n(Relevance Score: {note['similarity']:.2f})"
     
     # Create the summarization prompt
-    prompt = f"""Based on the provided sources, give a brief overview for: "{query}"
+    prompt = f"""Basándote en las fuentes proporcionadas, da una breve reseña para: "{query}"
 
-Keep it concise - just 2-3 sentences highlighting the key points.
+Mantén la respuesta concisa - solo 2-3 oraciones destacando los puntos clave. Responde SIEMPRE en español.
 
-SOURCES:{context}
+FUENTES:{context}
 
 OVERVIEW:"""
     
@@ -143,8 +143,8 @@ def render_search_tab(embeddings: np.ndarray, notes: List[Dict], model, ollama_m
     with col2:
         search_depth = st.selectbox(
             "Search Depth",
-            options=[5, 10, 15, 20],
-            index=1,
+            options=[3, 6, 10, 20],
+            index=0,
             help="Number of relevant notes to include in summary"
         )
     
@@ -213,7 +213,7 @@ def display_search_results(results: Dict):
         for i, source in enumerate(results['sources'], 1):
             with st.expander(
                 f"📄 {source['file']} - Relevance: {source['similarity']:.1%}",
-                expanded=i <= 3  # Expand first 3 sources by default
+                expanded=False  # Keep all sources collapsed by default
             ):
                 # Show metadata
                 col1, col2, col3 = st.columns(3)

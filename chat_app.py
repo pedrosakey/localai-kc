@@ -2,7 +2,7 @@
 Chat with My Notes - A Local RAG Application
 
 A Streamlit app for chatting with your local notes using:
-- Ollama for local LLM inference (gemma2:2b by default)
+- Ollama for local LLM inference (gemma3n:4b by default)
 - Sentence Transformers for local embeddings
 - Vector similarity search for relevant note retrieval
 - Support for Markdown (.md) and text (.txt) files
@@ -293,7 +293,7 @@ def create_rag_prompt(question: str, relevant_notes: List[Dict]) -> str:
     # Create the complete RAG prompt with instructions
     prompt = f"""You are a helpful assistant that answers questions based on the provided notes. 
 Answer the question using only the information from the sources below. If you cannot find the answer in the provided sources, say so clearly.
-
+Answer in Spanish always even if doc is in Spanish.
 Question: {question}
 
 Sources:{context}
@@ -350,7 +350,7 @@ def main():
         st.markdown(f"**🔍 Embedding Model:** {EMBEDDING_MODEL}")
         
         # Search configuration
-        top_k = st.slider("Number of relevant notes", 1, 10, 5)
+        top_k = st.slider("Number of relevant notes", 1, 10, 3)
         
         st.markdown("---")
         

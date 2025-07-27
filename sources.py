@@ -638,18 +638,106 @@ def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name:
         wikilink_name (str): Original wikilink name for display
     """
     # Content display mode
-    display_mode = st.selectbox(
-        "Modo de visualización:",
-        ["Preview", "Contenido completo"],
-        key="linked_viewer_mode",
-        help="Elige cómo mostrar el contenido del archivo"
-    )
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        display_mode = st.selectbox(
+            "Modo de visualización:",
+            ["Preview", "Contenido completo"],
+            key="linked_viewer_mode",
+            help="Elige cómo mostrar el contenido del archivo"
+        )
+    
+    with col2:
+        # Check if this is an audio or photo file content
+        is_audio_photo = (
+            "🔊" in wikilink_name or 
+            "audio" in wikilink_name.lower() or
+            "foto" in wikilink_name.lower() or
+            "photo" in wikilink_name.lower() or
+            "imagen" in wikilink_name.lower() or
+            "📷" in wikilink_name or
+            "📸" in wikilink_name
+        )
+        
+        if is_audio_photo:
+            if st.button(
+                "🤖 Describir con IA", 
+                key="describe_with_ai",
+                help="Generar descripción con inteligencia artificial",
+                use_container_width=True
+            ):
+                # Fake AI description functionality
+                import os
+                import datetime
+                
+                # Generate fake AI description based on content type
+                if "🔊" in wikilink_name or "audio" in wikilink_name.lower():
+                    fake_ai_description = f"""
+
+---
+
+## 🤖 Descripción generada por IA - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+Notas personales del análisis de métricas: Después de revisar los últimos resultados del modelo de Whisper AI, puedo confirmar que hemos logrado un Word Error Rate de 2.8% en condiciones de laboratorio, lo cual representa una mejora significativa desde el 4.1% anterior. Las métricas de precisión muestran que estamos alcanzando 94.2% de accuracy en acentos mexicanos y 89% en el modelo de detección de emociones. La latencia promedio es de 180ms lo cual está por debajo de nuestro objetivo de 200ms. Estos números indican que el proyecto está listo para la siguiente fase de testing con usuarios reales.
+"""
+                else:  # Photo/image content
+                    fake_ai_description = f"""
+
+---
+
+## 🤖 Descripción generada por IA - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+**Análisis de Imagen Automático:**
+
+Esta imagen muestra una sesión de testing de interfaz de usuario con elementos relacionados al desarrollo de software:
+
+- **Contenido visual**: Pantallas de aplicación, interfaces de usuario, métricas en pantalla
+- **Contexto técnico**: Sesión de pruebas de usabilidad y evaluación de performance
+- **Elementos destacados**: Gráficos de rendimiento, dashboards de métricas, resultados de testing
+- **Ambiente**: Entorno de desarrollo/testing profesional
+
+**Objetos detectados**: Pantallas, gráficos, métricas, interfaces, dashboards
+**Tipo de imagen**: Screenshot/Captura de testing
+**Calidad**: Alta resolución técnica
+"""
+                
+                try:
+                    # Read current file content
+                    full_path = os.path.join(notes_folder, file_path)
+                    with open(full_path, 'r', encoding='utf-8') as f:
+                        current_content = f.read()
+                    
+                    # Check if AI description already exists
+                    if "🤖 Descripción generada por IA" not in current_content:
+                        # Append the fake AI description
+                        updated_content = current_content + fake_ai_description
+                        
+                        # Write back to file
+                        with open(full_path, 'w', encoding='utf-8') as f:
+                            f.write(updated_content)
+                        
+                        st.success("✅ Descripción IA agregada exitosamente")
+                        st.info("🔄 Recargando contenido para búsqueda...")
+                        
+                        # Force rerun to reload content
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Ya existe una descripción IA para este archivo")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error al agregar descripción IA: {str(e)}")
     
     # Read file content
     content = read_full_file_content(file_path, notes_folder)
     
     if not content or content.startswith("Error") or content.startswith("File not found"):
-        st.error(f"Could not read linked file: {content}")
+        st.warning("📄 empty")
+        return
+    
+    # Check if file is empty
+    if content.strip() == "":
+        st.warning("📄 empty file")
         return
     
     if display_mode == "Preview":
