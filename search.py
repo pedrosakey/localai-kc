@@ -103,23 +103,13 @@ def create_summarization_prompt(query: str, relevant_notes: List[Dict]) -> str:
         context += f"\n(Relevance Score: {note['similarity']:.2f})"
     
     # Create the summarization prompt
-    prompt = f"""You are an expert research assistant. Your task is to create a comprehensive summary based on the provided sources.
+    prompt = f"""Based on the provided sources, give a brief overview for: "{query}"
 
-SEARCH QUERY: "{query}"
-
-INSTRUCTIONS:
-1. Create a well-structured summary that directly addresses the search query
-2. Synthesize information from multiple sources when relevant
-3. Organize the information logically with clear headings
-4. Include specific details and examples from the sources
-5. If sources contradict each other, mention both perspectives
-6. End with key takeaways or conclusions
-7. Be thorough but concise
+Keep it concise - just 2-3 sentences highlighting the key points.
 
 SOURCES:{context}
 
-SUMMARY:
-Create a comprehensive summary addressing "{query}" based on the sources above:"""
+OVERVIEW:"""
     
     return prompt
 
