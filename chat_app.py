@@ -329,7 +329,7 @@ def main():
     # =========================
     # PAGE HEADER
     # =========================
-    st.title("📝 Chat with My Notes")
+    st.title("🧠 Second Brain")
     st.markdown("Ask questions about your local notes using AI")
     
     # =========================
