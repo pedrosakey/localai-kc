@@ -569,7 +569,36 @@ def render_linked_viewer(notes: List[Dict], notes_folder: str):
     with col2:
         if st.button("✖️", key="close_linked_viewer", help="Close linked viewer"):
             del st.session_state.selected_wikilink
+            if 'wikilink_context' in st.session_state:
+                del st.session_state.wikilink_context
             st.rerun()
+    
+    # Show context if available (from daily notes)
+    if 'wikilink_context' in st.session_state:
+        context = st.session_state.wikilink_context
+        st.markdown("### 📝 Contexto de la referencia")
+        
+        # Show the daily note entry that referenced this wikilink
+        st.markdown(f"**⏰ {context['time']} - {context['description']}**")
+        
+        # Show metadata
+        meta_info = []
+        if context.get('status'):
+            meta_info.append(f"Status: {context['status']}")
+        if context.get('area'):
+            meta_info.append(f"Área: {context['area']}")
+        if context.get('date'):
+            meta_info.append(f"Fecha: {context['date']}")
+        
+        if meta_info:
+            st.caption(" | ".join(meta_info))
+        
+        # Show the full content with audio/photo descriptions
+        if context.get('content'):
+            with st.expander("📄 Contenido completo de la entrada", expanded=True):
+                st.markdown(context['content'])
+        
+        st.markdown("---")
     
     # Resolve wikilink to file path
     resolved_path = resolve_wikilink(selected_wikilink, notes)
@@ -596,6 +625,7 @@ def render_linked_viewer(notes: List[Dict], notes_folder: str):
         return
     
     # Display the linked file content
+    st.markdown(f"### 📄 Contenido del archivo: `{selected_wikilink}`")
     render_linked_file_content(resolved_path, notes_folder, selected_wikilink)
 
 def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name: str):
@@ -607,14 +637,12 @@ def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name:
         notes_folder (str): Base notes folder
         wikilink_name (str): Original wikilink name for display
     """
-    st.markdown(f"**File:** `{file_path}`")
-    
     # Content display mode
     display_mode = st.selectbox(
-        "Display Mode:",
-        ["Preview", "Full Content"],
+        "Modo de visualización:",
+        ["Preview", "Contenido completo"],
         key="linked_viewer_mode",
-        help="Choose how to display the linked content"
+        help="Elige cómo mostrar el contenido del archivo"
     )
     
     # Read file content
@@ -630,17 +658,15 @@ def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name:
         if len(content) > 500:
             preview += "..."
         
-        st.markdown("**Preview:**")
         if file_path.endswith('.md'):
             st.markdown(preview)
         else:
             st.text(preview)
             
         if len(content) > 500:
-            st.caption(f"Showing first 500 of {len(content)} characters")
+            st.caption(f"Mostrando los primeros 500 de {len(content)} caracteres")
     
-    else:  # Full Content
-        st.markdown("**Full Content:**")
+    else:  # Contenido completo
         if file_path.endswith('.md'):
             st.markdown(content)
         else:
@@ -650,7 +676,7 @@ def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name:
     nested_links = extract_wikilinks(content)
     if nested_links:
         st.markdown("---")
-        st.markdown(f"**🔗 Links in this file ({len(nested_links)}):**")
+        st.markdown(f"**🔗 Enlaces en este archivo ({len(nested_links)}):**")
         
         # Show up to 5 nested links
         for i, nested_link in enumerate(nested_links[:5]):
@@ -658,7 +684,7 @@ def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name:
             with col1:
                 st.markdown(f"• `{nested_link}`")
             with col2:
-                if st.button("→", key=f"nested_link_{i}_{nested_link}", help=f"Follow {nested_link}"):
+                if st.button("→", key=f"nested_link_{i}_{nested_link}", help=f"Seguir {nested_link}"):
                     # Resolve and display nested link
                     nested_path = resolve_wikilink(nested_link, notes)
                     if nested_path:
@@ -666,7 +692,7 @@ def render_linked_file_content(file_path: str, notes_folder: str, wikilink_name:
                         st.rerun()
         
         if len(nested_links) > 5:
-            st.caption(f"+ {len(nested_links) - 5} more links...")
+            st.caption(f"+ {len(nested_links) - 5} enlaces más...")
 
 def render_content_with_wikilink_buttons(content: str, notes: List[Dict], source_file: str):
     """
@@ -696,14 +722,26 @@ def render_daily_note_content(content: str, notes: List[Dict], source_file: str)
     lines = content.split('\n')
     current_entry = {}
     entry_count = 0
+    in_separator = False
     
     for line in lines:
+        original_line = line
         line = line.strip()
         
         # Skip empty lines and headers
         if not line or line.startswith('#'):
             if line.startswith('#'):
                 st.markdown(line)
+            continue
+        
+        # Check for separator (---)
+        if line == '---':
+            # Render previous entry if exists
+            if current_entry:
+                render_daily_entry_card(current_entry, notes, source_file, entry_count)
+                entry_count += 1
+                current_entry = {}
+            in_separator = True
             continue
         
         # Check for time-based entry (e.g., "18:11 captura dia 5")
@@ -722,13 +760,15 @@ def render_daily_note_content(content: str, notes: List[Dict], source_file: str)
                 'area': '',
                 'date': '',
                 'wikilinks': [],
-                'raw_lines': [line]
+                'content_lines': [],  # For full content
+                'raw_lines': [original_line]
             }
+            in_separator = False
             continue
         
-        # Process metadata and wikilinks for current entry
-        if current_entry:
-            current_entry['raw_lines'].append(line)
+        # Process content for current entry
+        if current_entry and not in_separator:
+            current_entry['raw_lines'].append(original_line)
             
             if line.startswith('status::'):
                 current_entry['status'] = line.replace('status::', '').strip()
@@ -736,9 +776,14 @@ def render_daily_note_content(content: str, notes: List[Dict], source_file: str)
                 current_entry['area'] = line.replace('area::', '').strip()
             elif line.startswith('date::'):
                 current_entry['date'] = line.replace('date::', '').strip()
-            elif '[[' in line and ']]' in line:
-                wikilinks = extract_wikilinks(line)
-                current_entry['wikilinks'].extend(wikilinks)
+            else:
+                # This is content (including audio/photo descriptions)
+                current_entry['content_lines'].append(original_line)
+                
+                # Extract wikilinks from any content line
+                if '[[' in line and ']]' in line:
+                    wikilinks = extract_wikilinks(line)
+                    current_entry['wikilinks'].extend(wikilinks)
     
     # Render last entry
     if current_entry:
@@ -788,20 +833,44 @@ def render_daily_entry_card(entry: Dict, notes: List[Dict], source_file: str, en
         if date:
             st.caption(f"📅 {date}")
         
-        # Render wikilinks inline
+        # Show full content including audio/photo descriptions
+        content_lines = entry.get('content_lines', [])
+        if content_lines:
+            st.markdown("---")
+            full_content = '\n'.join(content_lines)
+            
+            # Process the content to make wikilinks clickable but show everything
+            processed_content = process_daily_content_with_wikilinks(full_content, notes, source_file, entry_count)
+            st.markdown(processed_content, unsafe_allow_html=True)
+        
+        # Store entry context for linked viewer
+        entry_context = {
+            'time': entry['time'],
+            'description': entry['description'],
+            'status': entry.get('status', ''),
+            'area': entry.get('area', ''),
+            'date': entry.get('date', ''),
+            'content': '\n'.join(content_lines),
+            'source_file': source_file
+        }
+        
+        # Render wikilinks as buttons with context
         if entry.get('wikilinks'):
-            st.markdown("**🔗 Related:**")
+            st.markdown("---")
+            st.markdown("**🔗 Referencias:**")
             for i, wikilink in enumerate(entry['wikilinks']):
                 resolved_path = resolve_wikilink(wikilink, notes)
                 button_key = f"daily_wikilink_{source_file}_{entry_count}_{i}_{wikilink}".replace("/", "_").replace(".", "_").replace(" ", "_")
                 
                 if resolved_path:
                     if st.button(
-                        wikilink,
+                        f"📄 {wikilink}",
                         key=button_key,
-                        help=f"Click to view {wikilink} in Linked Viewer"
+                        help=f"Click to view {wikilink} with context in Linked Viewer"
                     ):
+                        # Store both the wikilink and its context
                         st.session_state.selected_wikilink = wikilink
+                        st.session_state.wikilink_context = entry_context
                         st.rerun()
                 else:
                     st.markdown(f"❌ {wikilink} (not found)")
@@ -881,3 +950,26 @@ def process_line_with_inline_wikilinks(line: str, notes: List[Dict], source_file
     processed_line = re.sub(pattern, replace_wikilink, line)
     
     return processed_line 
+
+def process_daily_content_with_wikilinks(content: str, notes: List[Dict], source_file: str, entry_count: int) -> str:
+    """
+    Process daily note content to make wikilinks clickable while preserving formatting.
+    """
+    import re
+    
+    def replace_wikilink(match):
+        wikilink_text = match.group(1)
+        resolved_path = resolve_wikilink(wikilink_text, notes)
+        
+        if resolved_path:
+            # Make it clickable and styled - but since we can't make it truly clickable in markdown,
+            # we'll style it to show it's a link
+            return f'<span style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #1976d2; border-radius: 6px; padding: 4px 8px; color: #1976d2; font-weight: 500; margin: 0 2px; display: inline-block; cursor: pointer;">🔗 {wikilink_text}</span>'
+        else:
+            return f'<span style="background-color: #ffebee; padding: 4px 8px; border-radius: 6px; border: 1px solid #d32f2f; color: #d32f2f; margin: 0 2px; display: inline-block;">❌ {wikilink_text}</span>'
+    
+    # Replace wikilinks with styled spans
+    pattern = r'\[\[([^\]]+)\]\]'
+    processed_content = re.sub(pattern, replace_wikilink, content)
+    
+    return processed_content 
