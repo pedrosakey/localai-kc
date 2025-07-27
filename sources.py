@@ -235,7 +235,7 @@ def render_sources_sidebar(sources_by_type: Dict[str, List[Dict]], notes: List[D
     selected_types = st.multiselect(
         "📁 File Types",
         options=['daily', 'markdown', 'text', 'other'],
-        default=['daily', 'markdown', 'text'],
+        default=['daily'],
         format_func=lambda x: f"📅 {x.title()} Notes" if x == 'daily' else f"📝 {x.title()}" if x == 'markdown' else f"📄 {x.title()}" if x == 'text' else f"📋 {x.title()}"
     )
     
