@@ -1,0 +1,64 @@
+Machine Learning Models Overview
+
+Linear Regression
+- Simplest form of supervised learning
+- Predicts continuous values
+- Formula: y = mx + b
+- Good for understanding relationships between variables
+- Assumptions: linear relationship, no multicollinearity
+
+Decision Trees
+- Tree-like model of decisions
+- Easy to interpret and visualize
+- Can handle both classification and regression
+- Prone to overfitting
+- Random Forest improves upon single trees
+
+Support Vector Machines (SVM)
+- Finds optimal boundary between classes
+- Works well with high-dimensional data
+- Can use different kernels (linear, polynomial, RBF)
+- Memory efficient
+- Not suitable for large datasets
+
+Neural Networks
+- Inspired by biological neurons
+- Consists of layers: input, hidden, output
+- Universal function approximators
+- Requires large amounts of data
+- Can be deep (many hidden layers)
+
+K-Means Clustering
+- Unsupervised learning algorithm
+- Groups data into k clusters
+- Minimizes within-cluster sum of squares
+- Requires choosing number of clusters
+- Sensitive to initialization
+
+Logistic Regression
+- Used for binary classification
+- Uses sigmoid function to map to probabilities
+- Linear decision boundary
+- Provides probability estimates
+- Less prone to overfitting than linear regression
+
+Naive Bayes
+- Based on Bayes' theorem
+- Assumes independence between features
+- Fast and simple
+- Works well with small datasets
+- Good baseline for text classification
+
+Gradient Boosting
+- Ensemble method
+- Builds models sequentially
+- Each model corrects errors of previous ones
+- XGBoost and LightGBM are popular implementations
+- Often wins machine learning competitions
+
+Model Selection Considerations:
+- Size of dataset
+- Interpretability requirements
+- Computational resources
+- Type of problem (classification vs regression)
+- Feature types and quality 
