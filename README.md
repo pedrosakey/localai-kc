@@ -2,6 +2,12 @@
 
 A simple Streamlit app for chatting with your local notes using Ollama and local embeddings.
 
+**Presentacion**
+[Ir a la presentacion](https://docs.google.com/presentation/d/1E-K28nZp0knQgzOXBkIPd3qRzrYmziGs/edit?usp=drive_link&ouid=101768567519265651809&rtpof=true&sd=true)
+
+**Demo**
+[Ir a la demo](https://drive.google.com/file/d/16-LsXyBDi5mlJznPtcsnoZwVskGpMh7l/view?usp=sharing)
+
 ## Features
 
 - 📝 Load local Markdown (.md) and text (.txt) files
@@ -128,25 +134,3 @@ Content with [[wiki_links]] to other notes...
 6. **AI Response**: Sends to Ollama for natural language response
 7. **Citations**: Shows which note chunks were used as sources
 
-## Troubleshooting
-
-### Ollama connection issues
-- Make sure Ollama is running: `ollama serve`
-- Check if the model is available: `ollama list`
-- Pull the model if missing: `ollama pull gemma3n:4b`
-
-### No notes found
-- Check the notes folder path
-- Ensure files have .md or .txt extensions
-- Verify file permissions
-
-### Performance tips
-- Use cached queries for faster search
-- Reduce number of retrieved chunks if slow
-- AI descriptions auto-reload for immediate search availability
-
-## Requirements
-
-- Python 3.8+
-- Ollama installed and running
-- At least 4GB RAM for embeddings and Ollama model 
