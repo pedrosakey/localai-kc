@@ -6,10 +6,14 @@ A simple Streamlit app for chatting with your local notes using Ollama and local
 
 - 📝 Load local Markdown (.md) and text (.txt) files
 - 🔍 Semantic search using local embeddings
-- 🤖 AI responses using Ollama (gemma2:2b)
+- 🤖 AI responses using Ollama (gemma3n:4b)
 - 💬 Interactive chat interface
 - 📎 Source citations showing relevant note chunks
-- 🔄 Real-time note reloading
+- 🔗 **Wiki-links**: Click `[[note_name]]` to navigate between notes
+- 📅 **Daily Notes**: Structured daily entries with status and areas
+- 🎵 **AI Descriptions**: Generate descriptions for audio/photo files
+- 🔄 **Auto-reload**: Content updates automatically after changes
+- 🇪🇸 Spanish language support
 
 ## Setup
 
@@ -45,26 +49,35 @@ pip install -r requirements.txt
 streamlit run chat_app.py
 ```
 
+### Main Interface
+
+The app has three main tabs:
+
+#### 💬 Chat
+- Ask questions about your notes
+- Get AI responses with source citations
+- Sources show relevance scores
+
+#### 🔍 Search  
+- Semantic search across all notes
+- Get summarized results in Spanish
+- Adjust number of results with slider
+
+#### 📁 Sources Browser
+- **Source Files**: Browse all your notes
+- **Daily Notes**: View structured daily entries
+- **Linked Viewer**: Click wiki-links to see referenced content
+
 ### Configure the app
 
 1. Set your notes folder path in the sidebar (default: `./notes`)
-2. Choose your Ollama model (default: `gemma2:2b`)
+2. Choose your Ollama model (default: `gemma3n:4b`) 
 3. Adjust the number of relevant notes to retrieve
 4. Click "Load/Reload Notes" to refresh your note collection
 
-### Chat with your notes
+## Note Formats
 
-- Type questions about your notes in the chat input
-- The app will search for relevant content and generate AI responses
-- Click on "Sources" to see which note chunks were used
-- Sources show relevance scores to help you understand the search quality
-
-## Supported Note Formats
-
-### Markdown files (.md)
-- Supports frontmatter with metadata (title, tags, etc.)
-- Headers and content are properly chunked
-- Example:
+### Regular Markdown files (.md)
 ```markdown
 ---
 title: "My Note"
@@ -72,53 +85,65 @@ tags: [ai, machine-learning]
 ---
 
 # Main Topic
-Content here...
+Content with [[wiki_links]] to other notes...
 ```
 
-### Text files (.txt)
-- Plain text content
-- Automatically chunked by paragraphs
+### Daily Notes format
+```markdown
+18:11 meeting notes status:: Completed area:: Work date::2025-07-29
+[[project_notes]]
+
+19:05 buy coffee status:: Pending area:: Personal date::2025-07-29
+[[shopping_list]]
+```
+
+### Audio/Photo files
+- Add `.md` files describing audio/photo content
+- Use "🤖 Describir con IA" button to generate descriptions
+- Content becomes immediately searchable after generation
+- Automatic cache clearing and reload
+
+## Wiki-Links
+
+- Use `[[note_name]]` to link between notes
+- Click links to view content in Linked Viewer
+- Works in daily notes and regular content
+- Auto-detects and resolves file references
+
+## AI Descriptions
+
+- **Smart Detection**: Generates specific content based on file type
+- **Audio Files**: Creates detailed transcriptions with metrics
+- **Photo Files**: Generates visual analysis and testing results
+- **Auto-Reload**: Content immediately available in search after generation
+- **Cache Management**: Automatically clears and reloads data
 
 ## How it works
 
-1. **Document Loading**: Scans your notes folder for .md and .txt files
-2. **Text Chunking**: Splits documents into manageable chunks (~1000 characters)
+1. **Document Loading**: Scans notes folder for .md and .txt files
+2. **Text Chunking**: Splits documents into chunks (~1000 characters)
 3. **Embeddings**: Creates vector embeddings using sentence-transformers
-4. **Search**: Uses cosine similarity to find relevant chunks for your query
-5. **RAG**: Combines relevant chunks with your question in a prompt
+4. **Search**: Uses cosine similarity to find relevant chunks
+5. **RAG**: Combines relevant chunks with your question
 6. **AI Response**: Sends to Ollama for natural language response
 7. **Citations**: Shows which note chunks were used as sources
-
-## Customization
-
-### Change embedding model
-Edit the `load_embedding_model()` function to use a different sentence-transformers model:
-```python
-return SentenceTransformer('all-mpnet-base-v2')  # Higher quality but slower
-```
-
-### Change chunk size
-Modify the `max_length` parameter in `chunk_text()`:
-```python
-def chunk_text(text: str, filename: str, max_length: int = 1500):
-```
 
 ## Troubleshooting
 
 ### Ollama connection issues
 - Make sure Ollama is running: `ollama serve`
 - Check if the model is available: `ollama list`
-- Pull the model if missing: `ollama pull gemma2:2b`
+- Pull the model if missing: `ollama pull gemma3n:4b`
 
 ### No notes found
 - Check the notes folder path
 - Ensure files have .md or .txt extensions
 - Verify file permissions
 
-### Slow performance
-- Use smaller embedding models
-- Reduce chunk size or number of retrieved chunks
-- Use faster Ollama models like gemma2:2b
+### Performance tips
+- Use cached queries for faster search
+- Reduce number of retrieved chunks if slow
+- AI descriptions auto-reload for immediate search availability
 
 ## Requirements
 
